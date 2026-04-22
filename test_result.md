@@ -101,3 +101,129 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  Portfolio website for Praveen Bajpai (Senior Frontend Engineer, Angular specialist).
+  Contact form must: (1) persist messages in MongoDB, (2) send an email notification
+  to bajpaipraveen0@gmail.com via Gmail SMTP using a configured App Password.
+
+backend:
+  - task: "POST /api/contact — save submission to MongoDB and send email via Gmail SMTP"
+    implemented: true
+    working: false
+    file: "/app/backend/server.py"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: |
+            Implemented POST /api/contact using pydantic EmailStr validation.
+            Persists a document to db.contact_messages, then attempts SMTP send
+            via smtplib on smtp.gmail.com:587 with STARTTLS using GMAIL_USER /
+            GMAIL_APP_PASSWORD env vars. Returns { success, id, mailed }.
+            Even if SMTP fails, the message is saved and mailed is updated to
+            True on success.
+        - working: false
+          agent: "testing"
+          comment: |
+            CRITICAL: Gmail SMTP authentication failing with error 535-5.7.8 "Username and Password not accepted".
+            Contact submission works (saves to MongoDB, returns 200 with success=true), but mailed=false.
+            Backend logs show: SMTPAuthenticationError: (535, b'5.7.8 Username and Password not accepted. For more information, go to 5.7.8 https://support.google.com/mail/?p=BadCredentials')
+            Root cause: Gmail App Password "Ifxtkzuxkybppkxm" is invalid/expired, or 2FA not properly configured on bajpaipraveen0@gmail.com.
+            Solution needed: Generate new Gmail App Password with 2FA enabled.
+
+  - task: "GET /api/contact — list last 100 submissions"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Returns last 100 contact messages sorted desc by created_at."
+        - working: true
+          agent: "testing"
+          comment: |
+            ✅ GET /api/contact working correctly. Returns JSON array with proper fields:
+            id, name, email, subject, message, created_at, mailed. Sort order confirmed
+            (newest first). Tested with multiple submissions.
+
+  - task: "Validation: reject invalid email, empty name/message"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "EmailStr + min_length validators; should return 422 on invalid input."
+        - working: true
+          agent: "testing"
+          comment: |
+            ✅ All validation tests passed with HTTP 422 responses:
+            - Missing email field
+            - Invalid email format (not-an-email)
+            - Empty message field
+            - Empty name field
+            Pydantic EmailStr and min_length validators working correctly.
+
+frontend:
+  - task: "Contact form wired to POST /api/contact"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/Contact.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Replaced localStorage mock with axios call. Uses REACT_APP_BACKEND_URL."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "POST /api/contact — save submission to MongoDB and send email via Gmail SMTP"
+  stuck_tasks:
+    - "POST /api/contact — save submission to MongoDB and send email via Gmail SMTP"
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: |
+        Please test the three backend tasks listed under test_plan.current_focus.
+        - Use REACT_APP_BACKEND_URL (external) for requests.
+        - All endpoints are prefixed with /api.
+        - For the email-send test: verify the endpoint returns 200 with
+          success=true. The `mailed` flag should be true when Gmail SMTP
+          succeeds. If it comes back false, capture and return the backend
+          logs (tail /var/log/supervisor/backend.*.log) so I can diagnose.
+        - Validation test: send invalid email and empty message, expect 422.
+        - GET /api/contact should return the previously inserted record(s).
+    - agent: "testing"
+      message: |
+        Backend testing completed. CRITICAL ISSUE FOUND:
+        
+        ✅ WORKING: Contact form submission, data persistence, validation, and retrieval
+        ❌ FAILING: Gmail SMTP email sending (authentication error)
+        
+        The Gmail App Password "Ifxtkzuxkybppkxm" is being rejected by Gmail with error 535-5.7.8.
+        This typically means:
+        1. App password is invalid/expired
+        2. 2FA not properly enabled on bajpaipraveen0@gmail.com
+        3. App password was revoked
+        
+        IMMEDIATE ACTION REQUIRED: Generate new Gmail App Password with 2FA enabled.
+        All other backend functionality is working correctly.

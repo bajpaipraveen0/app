@@ -1,7 +1,10 @@
 import React, { useState } from "react";
+import axios from "axios";
 import { personal } from "../mock";
 import { Mail, Linkedin, Phone, Send, MapPin, Github } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function Contact() {
   const { toast } = useToast();
@@ -10,7 +13,7 @@ export default function Contact() {
 
   const onChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.message) {
       toast({ title: "Please complete the form", description: "Name, email and message are required." });
@@ -22,20 +25,27 @@ export default function Contact() {
       return;
     }
     setSending(true);
-    // Mock submission — stored in localStorage until backend is wired
-    setTimeout(() => {
-      try {
-        const saved = JSON.parse(localStorage.getItem("pb_messages") || "[]");
-        saved.push({ ...form, at: new Date().toISOString() });
-        localStorage.setItem("pb_messages", JSON.stringify(saved));
-      } catch (_) {}
-      setSending(false);
+    try {
+      const { data } = await axios.post(`${API}/contact`, form, {
+        headers: { "Content-Type": "application/json" },
+        timeout: 20000,
+      });
       setForm({ name: "", email: "", subject: "", message: "" });
       toast({
-        title: "Message sent",
-        description: "Thanks! I’ll get back to you within 24 hours.",
+        title: data?.mailed ? "Message sent" : "Message received",
+        description: data?.mailed
+          ? "Thanks! Your message is on its way — I'll reply within 24 hours."
+          : "Thanks! Saved your message. I'll reach out shortly.",
       });
-    }, 700);
+    } catch (err) {
+      const detail = err?.response?.data?.detail || err?.message || "Please try again.";
+      toast({
+        title: "Could not send",
+        description: typeof detail === "string" ? detail : "Please try again in a moment.",
+      });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
