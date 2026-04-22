@@ -123,8 +123,8 @@ export const experiences = [
 export const projects = [
   {
     id: "proj-1",
-    name: "Medicare Advantage Platform",
-    tagline: "Enterprise healthcare suite for Medicare Part C & D",
+    name: "MHK",
+    tagline: "Enterprise healthcare suite for Medicare Advantage & Part D",
     description:
       "A large-scale Angular application powering enrolment, member management, claims and billing for Medicare Advantage & Part D plans. Built reusable UI modules, NgRx-driven state and Kendo UI data-grids for back-office workflows.",
     impact: [
